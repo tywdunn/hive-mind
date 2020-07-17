@@ -1,0 +1,83 @@
+version: '3'
+
+services:
+    nginx:
+        container_name: ${COMPOSE_PROJECT_NAME}-nginx-cont
+        build:
+            context: .
+            dockerfile: ./build/nginx/Dockerfile-nginx
+        volumes:
+            - ./site/:/var/www/site/
+            - dist:/var/dist
+        expose:
+            - 80
+        ports:
+            - ${COMPOSE_NGINX_EXTERNAL_HTTP_PORT}:80
+            - ${COMPOSE_NGINX_EXTERNAL_HTTPS_PORT}:443
+        links:
+            - php
+        networks:
+            - hivemind
+    php:
+        container_name: ${COMPOSE_PROJECT_NAME}-php-cont
+        build:
+            context: .
+            dockerfile: ./build/php/Dockerfile-php
+        expose:
+            - 9000
+        environment:
+            APP_ENV: dev
+            DATABASE_URL: mysql://${COMPOSE_MYSQL_USER}:${COMPOSE_MYSQL_PASSWORD}@mysql:3306/${COMPOSE_MYSQL_DATABASE}?serverVersion=5.7
+        links:
+            - composer
+        volumes:
+            - ./site/:/var/www/site/
+        networks:
+            - hivemind
+        depends_on:
+            - mysql
+    mysql:
+        container_name: ${COMPOSE_PROJECT_NAME}-mysql-cont
+        image: mysql
+        command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci','--default-authentication-plugin=mysql_native_password']
+        environment:
+            MYSQL_DATABASE: ${COMPOSE_MYSQL_DATABASE}
+            MYSQL_USER: ${COMPOSE_MYSQL_USER}
+            MYSQL_PASSWORD: ${COMPOSE_MYSQL_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${COMPOSE_MYSQL_ROOT_PASSWORD}
+        ports:
+            - ${COMPOSE_MYSQL_EXTERNALPORT}:3306
+        volumes:
+            - ./mysql:/var/lib/mysql
+        networks:
+            - hivemind
+    composer:
+        container_name: ${COMPOSE_PROJECT_NAME}-composer-cont
+        build:
+            context: .
+            dockerfile: ./build/composer/Dockerfile-composer
+        command: install
+        volumes:
+          - ./site:/var/www/site
+        networks:
+            - hivemind
+    node:
+        container_name: ${COMPOSE_PROJECT_NAME}-node-cont
+        build:
+            context: .
+            dockerfile: ./build/node/Dockerfile-node
+        ports:
+            - 8080:8080
+        volumes:
+            - .:/var/www/assets:rw
+            - node_modules:/var/www/assets/node_modules
+            - dist:/var/www/assets/dist
+        networks:
+            - hivemind
+
+volumes:
+    node_modules:
+    dist:
+
+networks:
+    hivemind:
